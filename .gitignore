@@ -1,5 +1,4 @@
-﻿.env
-.venv
+﻿.venv
+/server/.env
 __pycache__
-uploaded_docs
-*.pyc
+test.py
