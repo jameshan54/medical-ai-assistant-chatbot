@@ -64,8 +64,15 @@ def load_vectorstore(uploaded_files):
         ids = [f"{Path(file_path).stem}-{i}" for i in range(len(chunks))]
 
         print(f"🔍 Embedding {len(texts)} chunks...")
-        embeddings = embed_model.embed_documents(texts)
-
+        embeddings = []
+        batch_size = 50
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i+batch_size]
+            batch_embeddings = embed_model.embed_documents(batch)
+            embeddings.extend(batch_embeddings)
+            if i + batch_size < len(texts):
+                time.sleep(65)  # 1분 대기
+                
         print("📤 Uploading to Pinecone...")
         with tqdm(total=len(embeddings), desc="Upserting to Pinecone") as progress:
             index.upsert(vectors=zip(ids, embeddings, metadatas))
