@@ -46,12 +46,14 @@ def load_vectorstore(uploaded_files):
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     file_paths = []
 
+    # 1. upload files to server
     for file in uploaded_files:
         save_path = Path(UPLOAD_DIR) / file.filename
         with open(save_path, "wb") as f:
             f.write(file.file.read())
         file_paths.append(str(save_path))
 
+    # 2. load, split
     for file_path in file_paths:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
@@ -63,6 +65,7 @@ def load_vectorstore(uploaded_files):
         metadatas = [{**chunk.metadata, "text": chunk.page_content} for chunk in chunks]
         ids = [f"{Path(file_path).stem}-{i}" for i in range(len(chunks))]
 
+        # 3. Embedding
         print(f"🔍 Embedding {len(texts)} chunks...")
         embeddings = []
         batch_size = 50
@@ -72,7 +75,8 @@ def load_vectorstore(uploaded_files):
             embeddings.extend(batch_embeddings)
             if i + batch_size < len(texts):
                 time.sleep(65)  # 1분 대기
-                
+        
+        # 4. Upsert to Pinecone
         print("📤 Uploading to Pinecone...")
         with tqdm(total=len(embeddings), desc="Upserting to Pinecone") as progress:
             index.upsert(vectors=zip(ids, embeddings, metadatas))
