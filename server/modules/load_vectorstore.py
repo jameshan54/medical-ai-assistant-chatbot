@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from pathlib import Path
 from dotenv import load_dotenv
@@ -63,7 +64,8 @@ def load_vectorstore(uploaded_files):
 
         texts = [chunk.page_content for chunk in chunks]
         metadatas = [{**chunk.metadata, "text": chunk.page_content} for chunk in chunks]
-        ids = [f"{Path(file_path).stem}-{i}" for i in range(len(chunks))]
+        safe_stem = re.sub(r'[^a-zA-Z0-9_-]', '_', Path(file_path).stem)[:50]
+        ids = [f"{safe_stem}-{i}" for i in range(len(chunks))]
 
         # 3. Embedding
         print(f"🔍 Embedding {len(texts)} chunks...")
