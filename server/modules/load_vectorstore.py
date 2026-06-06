@@ -58,7 +58,7 @@ def load_vectorstore(uploaded_files):
         loader = PyPDFLoader(file_path)
         documents = loader.load()
 
-        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
         chunks = splitter.split_documents(documents)
 
         texts = [chunk.page_content for chunk in chunks]
@@ -68,13 +68,13 @@ def load_vectorstore(uploaded_files):
         # 3. Embedding
         print(f"🔍 Embedding {len(texts)} chunks...")
         embeddings = []
-        batch_size = 50
+        batch_size = 80
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i+batch_size]
             batch_embeddings = embed_model.embed_documents(batch)
             embeddings.extend(batch_embeddings)
             if i + batch_size < len(texts):
-                time.sleep(65)  # 1분 대기
+                time.sleep(30)  # 1분 대기
         
         # 4. Upsert to Pinecone
         print("📤 Uploading to Pinecone...")
