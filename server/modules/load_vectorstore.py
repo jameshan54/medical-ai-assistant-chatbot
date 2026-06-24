@@ -63,7 +63,13 @@ def load_vectorstore(uploaded_files):
         chunks = splitter.split_documents(documents)
 
         texts = [chunk.page_content for chunk in chunks]
-        metadatas = [{**chunk.metadata, "text": chunk.page_content} for chunk in chunks]
+        # Keep only the filename (not the full upload path) as the source,
+        # so it matches cleanly against expected_sources in test sets later.
+        clean_source = Path(file_path).name
+        metadatas = [
+            {**chunk.metadata, "source": clean_source, "text": chunk.page_content}
+            for chunk in chunks
+        ]
         safe_stem = re.sub(r'[^a-zA-Z0-9_-]', '_', Path(file_path).stem)[:50]
         ids = [f"{safe_stem}-{i}" for i in range(len(chunks))]
 

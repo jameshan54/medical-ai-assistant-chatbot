@@ -5,8 +5,8 @@ def query_chain(chain, user_input: str):
         logger.debug(f"Running chain for input: {user_input}")
         result = chain.invoke(user_input)
         response = {
-            "response": result,
-            "sources": []
+            "response": result["answer"],
+            "sources": result["sources"]
         }
         logger.debug(f"Chain response: {response}")
         return response
