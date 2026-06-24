@@ -12,7 +12,39 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def format_docs(docs):
     """Join retrieved chunks into a single context string for the prompt."""
-    return "\n\n".join(d.page_content for d in docs)
+    formatted = []
+    for i, d in enumerate(docs, start=1):
+        meta = d.metadata or {}
+        source = meta.get("source", "unknown")
+        page = meta.get("page_number", meta.get("page", "unknown"))
+        chunk_id = meta.get("chunk_id", "unknown")
+
+        formatted.append(
+            f"[Chunk {i} | source={source} | page={page} | chunk_id={chunk_id}]\n"
+            f"{d.page_content}"
+        )
+
+    return "\n\n".join(formatted)
+
+
+def serialize_retrieved_chunks(docs):
+    """Return retrieved chunk metadata + text for evaluation/debugging."""
+    chunks = []
+
+    for rank, d in enumerate(docs, start=1):
+        meta = d.metadata or {}
+        chunks.append({
+            "rank": rank,
+            "source": meta.get("source", "unknown"),
+            "page": meta.get("page_number", meta.get("page", "unknown")),
+            "page_index": meta.get("page", None),
+            "chunk_id": meta.get("chunk_id", "unknown"),
+            "vector_id": meta.get("vector_id", "unknown"),
+            "score": meta.get("score", None),
+            "text": d.page_content,
+        })
+
+    return chunks
 
 
 def get_llm_chain(retriever):
@@ -38,6 +70,7 @@ def get_llm_chain(retriever):
         - Ground your answer strictly in the retrieved
           research context below. Do not use outside knowledge.
         - Never speculate or invent specific numbers or claims
+        - If the retrieved context is incomplete, say so briefly.
 
         ## Output format
         - Simple yes/no or definition questions: under 80 words
@@ -72,8 +105,8 @@ def get_llm_chain(retriever):
         """
     )
 
-    # Keep retrieved Document objects (with .metadata['source']) alongside
-    # the question, so callers can inspect sources without re-querying.
+    # Keep retrieved Document objects alongside the question so evaluation code
+    # can inspect source/page/chunk_id/score/text without running retrieval again.
     retrieve_with_sources = RunnableLambda(
         lambda question: {
             "docs": retriever.invoke(question),
@@ -85,12 +118,13 @@ def get_llm_chain(retriever):
         retrieve_with_sources
         | RunnablePassthrough.assign(
             context=lambda x: format_docs(x["docs"])
-          )
+        )
         | {
             "answer": prompt | llm | StrOutputParser(),
             "sources": lambda x: sorted(set(
                 d.metadata.get("source", "unknown") for d in x["docs"]
             )),
+            "retrieved_chunks": lambda x: serialize_retrieved_chunks(x["docs"]),
         }
     )
 
