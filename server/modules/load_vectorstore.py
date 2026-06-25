@@ -40,7 +40,7 @@ if PINECONE_INDEX_NAME not in existing_indexes:
 index = pc.Index(PINECONE_INDEX_NAME)
 
 
-def load_vectorstore(uploaded_files):
+def load_vectorstore(file_paths: list[str]):
     """Save uploaded PDFs, split them into chunks, embed chunks, and upsert to Pinecone.
 
     Important evaluation metadata stored per chunk:
@@ -52,16 +52,8 @@ def load_vectorstore(uploaded_files):
     - text: exact chunk text used for retrieval/generation
     """
     embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-    file_paths = []
 
-    # 1. Upload files to server
-    for file in uploaded_files:
-        save_path = Path(UPLOAD_DIR) / file.filename
-        with open(save_path, "wb") as f:
-            f.write(file.file.read())
-        file_paths.append(str(save_path))
-
-    # 2. Load, split, embed, and upsert each PDF
+    # 1. Load, split, embed, and upsert each PDF
     for file_path in file_paths:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
@@ -92,7 +84,7 @@ def load_vectorstore(uploaded_files):
                 "text": chunk.page_content,
             })
 
-        # 3. Embedding
+        # 2. Embedding
         print(f"🔍 Embedding {len(texts)} chunks from {clean_source}...")
         embeddings = []
         batch_size = 80
@@ -103,7 +95,7 @@ def load_vectorstore(uploaded_files):
             if i + batch_size < len(texts):
                 time.sleep(30)
 
-        # 4. Upsert to Pinecone
+        # 3. Upsert to Pinecone
         print("📤 Uploading to Pinecone...")
         vectors = list(zip(ids, embeddings, metadatas))
         with tqdm(total=len(vectors), desc="Upserting to Pinecone") as progress:
