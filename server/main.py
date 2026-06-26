@@ -1,18 +1,26 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from middlewares.exception_handlers import catch_exception_middleware
 from routes.upload_pdfs import router as upload_router
 from routes.ask_question import router as ask_router
+from routes.health import router as health_router
+from modules.db import engine, Base
+from models import hrv
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
 
-
-app=FastAPI(title="Medical Assistant API",description="API for AI Medical Assistant Chatbot")
+app=FastAPI(title="Medical Assistant API",description="API for AI Medical Assistant Chatbot", lifespan=lifespan)
 
 # CORS Setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -28,3 +36,5 @@ app.middleware("http")(catch_exception_middleware)
 app.include_router(upload_router)
 # 2. asking query
 app.include_router(ask_router)
+# 3. db health check
+app.include_router(health_router)

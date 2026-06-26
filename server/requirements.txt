@@ -32,6 +32,8 @@ tqdm
 # Logging (optional but recommended)
 loguru
 
-
+# Supabase
+sqlalchemy
+psycopg2-binary
 
 #  uv pip install -r requirements.txt
