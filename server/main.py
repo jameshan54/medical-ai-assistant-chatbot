@@ -6,6 +6,7 @@ from middlewares.exception_handlers import catch_exception_middleware
 from routes.upload_pdfs import router as upload_router
 from routes.ask_question import router as ask_router
 from routes.health import router as health_router
+from routes.upload_csv import router as upload_csv_router
 from modules.db import engine, Base
 from models import hrv
 
@@ -38,3 +39,5 @@ app.include_router(upload_router)
 app.include_router(ask_router)
 # 3. db health check
 app.include_router(health_router)
+# 4. csv upload
+app.include_router(upload_csv_router)

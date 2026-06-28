@@ -8,3 +8,10 @@ def upload_pdfs_api(files):
 
 def ask_question(question):
     return requests.post(f"{API_URL}/ask/",data={"question":question})
+
+def upload_csv_api(file, participant_code="P001"):
+    return requests.post(
+        f"{API_URL}/upload_csv/",
+        files={"file": (file.name, file.read(), "text/csv")},
+        data={"participant_code": participant_code},
+    )
