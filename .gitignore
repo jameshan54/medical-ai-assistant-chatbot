@@ -1,4 +1,15 @@
-﻿.venv
-/server/.env
-__pycache__
-test.py
+﻿# Cursor IDE (plans, local settings)
+.cursor/
+
+# env files (any location)
+.env
+**/.env
+
+# Python
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db

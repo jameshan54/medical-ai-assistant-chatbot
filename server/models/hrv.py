@@ -32,11 +32,12 @@ class HRVReading(Base):
         nullable=False,
     )
 
-    recorded_date: Mapped[date] = mapped_column(Date, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     rmssd: Mapped[float | None] = mapped_column(Float, nullable=True)
-    sdnn: Mapped[float | None] = mapped_column(Float, nullable=True)
-    heart_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coverage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    low_frequency: Mapped[float | None] = mapped_column(Float, nullable=True)
+    high_frequency: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     source: Mapped[str] = mapped_column(String, default="csv_upload")
 
