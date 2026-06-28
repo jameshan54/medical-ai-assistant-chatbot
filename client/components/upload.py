@@ -16,13 +16,20 @@ def render_uploader():
 
     st.sidebar.divider()
     st.sidebar.header("Upload HRV CSV")
-    participant_code = st.sidebar.text_input("Participant code", value="P001")
+    participant_code = st.sidebar.text_input(
+        "Participant code",
+        value=st.session_state.get("participant_code", "P001"),
+        key="participant_code_input",
+    )
+    st.session_state["participant_code"] = participant_code
+
     csv_file = st.sidebar.file_uploader("Upload HRV CSV", type="csv")
 
     if st.sidebar.button("Upload CSV") and csv_file:
         response = upload_csv_api(csv_file, participant_code)
         if response.status_code == 200:
             data = response.json()
+            st.session_state["participant_code"] = participant_code
             st.sidebar.success(
                 f"Done: inserted={data.get('inserted')}, skipped={data.get('skipped')}"
             )

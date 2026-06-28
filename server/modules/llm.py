@@ -47,14 +47,14 @@ def serialize_retrieved_chunks(docs):
     return chunks
 
 
-def get_llm_chain(retriever):
+def get_llm_chain(retriever, sql_context: str = ""):
     llm = ChatGroq(
         groq_api_key=GROQ_API_KEY,
         model_name="llama-3.3-70b-versatile"
     )
 
     prompt = PromptTemplate(
-        input_variables=["context", "question"],
+        input_variables=["context", "question", "sql_context"],
         template="""
         [system prompt]
         ## Role
@@ -67,10 +67,11 @@ def get_llm_chain(retriever):
         - Frame HRV changes as "patterns worth noticing",
           never as alarms or diagnoses
         - Be warm, encouraging, and supportive in tone
-        - Ground your answer strictly in the retrieved
-          research context below. Do not use outside knowledge.
-        - Never speculate or invent specific numbers or claims
-        - If the retrieved context is incomplete, say so briefly.
+        - Ground answers in the personal HRV data and/or
+          research context sections below. Do not use outside knowledge.
+        - Never invent personal numbers. Use only numbers from
+          the personal HRV data section when provided.
+        - Never speculate or invent claims not supported by the context below.
 
         ## Output format
         - Simple yes/no or definition questions: under 80 words
@@ -95,8 +96,17 @@ def get_llm_chain(retriever):
         - If a participant seems distressed, encourage them
           to speak with their researcher or doctor
 
-        🔍 **Context**:
+        ## Personal HRV data (from study database)
+        {sql_context}
+
+        ## Research context (from uploaded papers)
         {context}
+
+        ## Context usage rules
+        - When personal data is provided, you may reference specific numbers from it.
+        - When only research context is provided, do not invent personal numbers.
+        - For hybrid questions, connect personal patterns to research findings cautiously.
+        - If personal data says "Not applicable" or "no readings", ignore it for that question.
 
         🙋 **User Question**:
         {question}
@@ -117,7 +127,8 @@ def get_llm_chain(retriever):
     chain = (
         retrieve_with_sources
         | RunnablePassthrough.assign(
-            context=lambda x: format_docs(x["docs"])
+            context=lambda x: format_docs(x["docs"]),
+            sql_context=lambda x: sql_context or "No personal HRV data provided.",
         )
         | {
             "answer": prompt | llm | StrOutputParser(),
