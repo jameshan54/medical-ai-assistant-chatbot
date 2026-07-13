@@ -1,0 +1,13 @@
+{
+  "reference_date": "2026-07-12",
+  "days": 90,
+  "cutoff": "2026-04-13T00:00:00",
+  "participant_code": "EVAL_P001",
+  "reading_count": 30,
+  "rmssd_avg": 120.72413333333334,
+  "rmssd_min": 75.706,
+  "rmssd_max": 160.834,
+  "date_from": "2026-06-13",
+  "date_to": "2026-07-12",
+  "provenance": "fixture:seed_hrv.csv; script:compute_sql_truth.py"
+}
