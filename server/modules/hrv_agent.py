@@ -6,12 +6,17 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_groq import ChatGroq
 from sqlalchemy.orm import Session
 
-from modules.agent_tools import ToolRunContext, make_tools
+from modules.agent_tools import make_tools
+from modules.trace_collector import (
+    TraceCollector,
+    reset_trace_collector,
+    set_trace_collector,
+)
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_AGENT_MODEL = os.getenv("GROQ_AGENT_MODEL", "qwen/qwen3-32b")
+GROQ_AGENT_MODEL = os.getenv("GROQ_AGENT_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_PROMPT = """You are an HRV Research Assistant helping participants in a health study understand their Heart Rate Variability (HRV) data in simple, everyday language.
 
@@ -62,28 +67,39 @@ def _get_final_response(messages: list) -> str:
     return ""
 
 
-def run_hrv_agent(question: str, db: Session, participant_code: str) -> dict:
-    ctx = ToolRunContext()
-    tools = make_tools(db, participant_code, ctx)
+def run_hrv_agent(
+    question: str,
+    db: Session,
+    participant_code: str,
+    capture_trace: bool = False,
+) -> dict:
+    # Always create a per-request collector so /ask/ still gets sources.
+    # Only expose the full trace when capture_trace=True (eval).
+    collector = TraceCollector()
+    token = set_trace_collector(collector)
+    try:
+        tools = make_tools(db, participant_code, trace_collector=collector)
+        llm = ChatGroq(
+            groq_api_key=GROQ_API_KEY,
+            model_name=GROQ_AGENT_MODEL,
+            temperature=0,
+        )
+        agent = create_agent(
+            model=llm,
+            tools=tools,
+            system_prompt=SYSTEM_PROMPT,
+            debug=False,
+        )
+        result = agent.invoke({"messages": [HumanMessage(content=question)]})
+        messages = result["messages"]
 
-    llm = ChatGroq(
-        groq_api_key=GROQ_API_KEY,
-        model_name=GROQ_AGENT_MODEL,
-        temperature=0,
-    )
-
-    agent = create_agent(
-        model=llm,
-        tools=tools,
-        system_prompt=SYSTEM_PROMPT,
-        debug=False,
-    )
-
-    result = agent.invoke({"messages": [HumanMessage(content=question)]})
-    messages = result["messages"]
-
-    return {
-        "response": _get_final_response(messages),
-        "sources": ctx.sources,
-        "tools_used": _extract_tool_names(messages),
-    }
+        out = {
+            "response": _get_final_response(messages),
+            "sources": collector.sources,
+            "tools_used": _extract_tool_names(messages),
+        }
+        if capture_trace:
+            out["trace"] = collector.to_dict()
+        return out
+    finally:
+        reset_trace_collector(token)

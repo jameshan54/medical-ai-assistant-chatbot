@@ -65,35 +65,65 @@ def summarize_hrv_readings(readings: list[HRVReading]) -> dict:
         "high_frequency_avg": _avg([r.high_frequency for r in readings]),
     }
 
+def build_sql_result(
+    db: Session,
+    participant_code: str,
+    days: int | None = 90,
+) -> dict:
+    """Runtime actual only — do not use to generate eval expected values."""
+    participant = get_participant(db, participant_code)
+    if participant is None:
+        return {
+            "participant_code": participant_code,
+            "days": days,
+            "reading_count": 0,
+            "error": "participant_not_found",
+        }
+
+    readings = get_hrv_readings(db, participant_code, days=days)
+    summary = summarize_hrv_readings(readings)
+    return {
+        "participant_code": participant_code,
+        "days": days,
+        **summary,
+    }
+
+
+def format_sql_result(result: dict) -> str:
+    participant_code = result["participant_code"]
+    days = result.get("days")
+
+    if result.get("error") == "participant_not_found":
+        return "No participant found for this code."
+
+    if result.get("reading_count", 0) == 0:
+        return f"Participant {participant_code} has no HRV readings in the database."
+
+    period = f"last {days} days" if days else "all available data"
+    lines = [
+        f"Participant code: {participant_code}",
+        f"Period: {period} ({result['date_from']} to {result['date_to']})",
+        f"Number of readings: {result['reading_count']}",
+        (
+            f"RMSSD — avg: {result['rmssd_avg']}, "
+            f"min: {result['rmssd_min']}, max: {result['rmssd_max']}"
+        ),
+    ]
+
+    if result.get("coverage_avg") is not None:
+        lines.append(f"Coverage — avg: {result['coverage_avg']}")
+    if result.get("low_frequency_avg") is not None:
+        lines.append(f"Low frequency — avg: {result['low_frequency_avg']}")
+    if result.get("high_frequency_avg") is not None:
+        lines.append(f"High frequency — avg: {result['high_frequency_avg']}")
+
+    return "\n".join(lines)
+
+
 def build_sql_context(
     db: Session,
     participant_code: str,
     days: int | None = 30,
 ) -> str:
-    participant = get_participant(db, participant_code)
-    if participant is None:
-        return "No participant found for this code."
-
-    readings = get_hrv_readings(db, participant_code, days=days)
-    if not readings:
-        return f"Participant {participant_code} has no HRV readings in the database."
-
-    summary = summarize_hrv_readings(readings)
-    period = f"last {days} days" if days else "all available data"
-
-    lines = [
-        f"Participant code: {participant_code}",
-        f"Period: {period} ({summary['date_from']} to {summary['date_to']})",
-        f"Number of readings: {summary['reading_count']}",
-        f"RMSSD — avg: {summary['rmssd_avg']}, min: {summary['rmssd_min']}, max: {summary['rmssd_max']}",
-    ]
-
-    if summary.get("coverage_avg") is not None:
-        lines.append(f"Coverage — avg: {summary['coverage_avg']}")
-    if summary.get("low_frequency_avg") is not None:
-        lines.append(f"Low frequency — avg: {summary['low_frequency_avg']}")
-    if summary.get("high_frequency_avg") is not None:
-        lines.append(f"High frequency — avg: {summary['high_frequency_avg']}")
-
-    return "\n".join(lines)
+    return format_sql_result(build_sql_result(db, participant_code, days=days))
 

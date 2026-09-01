@@ -50,7 +50,7 @@ def serialize_retrieved_chunks(docs):
 def get_llm_chain(retriever, sql_context: str = ""):
     llm = ChatGroq(
         groq_api_key=GROQ_API_KEY,
-        model_name="llama-3.3-70b-versatile"
+        model_name="openai/gpt-oss-120b"
     )
 
     prompt = PromptTemplate(

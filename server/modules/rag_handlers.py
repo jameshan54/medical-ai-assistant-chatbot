@@ -26,8 +26,17 @@ def _query_pinecone(query: str, top_k: int = 3) -> list[Document]:
     ]
 
 
-def search_research_docs(query: str, top_k: int = 3) -> tuple[str, list[str]]:
+def search_research_docs(
+    query: str, top_k: int = 3
+) -> tuple[str, list[str], list[dict]]:
     docs = _query_pinecone(query, top_k=top_k)
     context = format_docs(docs)
     sources = sorted(set(d.metadata.get("source", "unknown") for d in docs))
-    return context, sources
+    chunks = [
+        {
+            "text": d.page_content,
+            "source": d.metadata.get("source", "unknown"),
+        }
+        for d in docs
+    ]
+    return context, sources, chunks
