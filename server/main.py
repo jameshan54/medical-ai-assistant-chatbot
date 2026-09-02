@@ -8,10 +8,12 @@ from routes.ask_question import router as ask_router
 from routes.health import router as health_router
 from routes.upload_csv import router as upload_csv_router
 from modules.db import engine, Base
+from modules.tracing import init_langsmith
 from models import hrv
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_langsmith()
     Base.metadata.create_all(bind=engine)
     yield
 

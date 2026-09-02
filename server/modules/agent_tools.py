@@ -14,7 +14,8 @@ def make_tools(
     @tool
     def query_hrv_data() -> str:
         """Fetch summarized personal HRV data for the current study participant (last 90 days).
-        Use when the user asks about their own RMSSD, averages, recent readings, etc."""
+        Call at most once. Use for the user's own RMSSD, averages, recent readings, or counts.
+        Do not use for symptoms, chest pain, diagnosis, or medication questions."""
         result = build_sql_result(db, participant_code, days=90)
         text = format_sql_result(result)
         if trace_collector is not None:
@@ -25,8 +26,10 @@ def make_tools(
 
     @tool
     def search_research_docs(query: str) -> str:
-        """Search uploaded research papers for HRV concepts, definitions, sleep/stress links, etc.
-        Use when the user asks what/why/how about HRV science — not personal numbers."""
+        """Search uploaded research papers once for HRV concepts, definitions, sleep/stress, caffeine, etc.
+        Pass a single focused query. Do not call again with a rephrased query.
+        Answer only from the returned text; do not invent findings not in the snippets.
+        Use for what/why/how about HRV science — not personal numbers, symptoms, or medication."""
         context, sources, chunks = fetch_research_docs(query)
         if trace_collector is not None:
             trace_collector.sources = sources

@@ -1,0 +1,26 @@
+name: medical-ai-assistant
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+      - path: server/.env
+        required: false
+    # DATABASE_URL points at hosted Supabase — no postgres service.
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "8501:8501"
+    environment:
+      BACKEND_URL: http://server:8000
+    depends_on:
+      - server

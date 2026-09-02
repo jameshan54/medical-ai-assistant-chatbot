@@ -19,16 +19,33 @@ load_dotenv(_SERVER_ROOT / ".env")
 
 from modules.db import SessionLocal  # noqa: E402
 from modules.hrv_agent import run_hrv_agent  # noqa: E402
+from modules.tracing import init_langsmith  # noqa: E402
 from server.eval.schemas.dataset import EvalExample  # noqa: E402
 
 
-def run_eval_example(example: EvalExample, db: Session) -> dict:
+def run_eval_example(
+    example: EvalExample,
+    db: Session,
+    *,
+    eval_run_id: str | None = None,
+) -> dict:
     """Invoke agent once; always capture_trace for eval metrics."""
+    tags = ["eval", example.category, example.id]
+    if eval_run_id:
+        tags.insert(1, f"eval_{eval_run_id}")
     result = run_hrv_agent(
         example.question,
         db,
         example.participant_code,
         capture_trace=True,
+        run_name=example.id,
+        ls_tags=tags,
+        ls_metadata={
+            "example_id": example.id,
+            "category": example.category,
+            "eval_run_id": eval_run_id,
+            "participant_code": example.participant_code,
+        },
     )
     return {
         "example_id": example.id,
@@ -71,9 +88,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+    init_langsmith()
     db = SessionLocal()
     try:
-        out = run_eval_example(example, db)
+        out = run_eval_example(example, db, eval_run_id="single")
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

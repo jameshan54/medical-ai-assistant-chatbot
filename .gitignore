@@ -15,3 +15,6 @@
 Thumbs.db
 
 server/eval/results/
+
+# Local docker compose overlay (copy from docker-compose.override.example.yml)
+docker-compose.override.yml

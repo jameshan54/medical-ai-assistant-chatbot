@@ -1,0 +1,22 @@
+# Local live-reload. Copy to docker-compose.override.yml (gitignored).
+# DB stays Supabase — do not add a postgres service.
+#
+# Bind-mounts hide /app/.venv, so keep the image venv with an anonymous volume.
+services:
+  server:
+    volumes:
+      - ./server:/app
+      - /app/.venv
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+  client:
+    volumes:
+      - ./client:/app

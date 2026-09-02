@@ -22,6 +22,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(_SERVER_ROOT / ".env")
 
 from modules.db import SessionLocal  # noqa: E402
+from modules.tracing import init_langsmith, without_tracing  # noqa: E402
 from server.eval.fixtures.seed_db import seed_eval_participant  # noqa: E402
 from server.eval.metrics.final_answer import score_final_answer  # noqa: E402
 from server.eval.metrics.rag import score_rag  # noqa: E402
@@ -177,6 +178,7 @@ def evaluate_example(
     *,
     skip_ragas: bool = False,
     skip_judge: bool = False,
+    eval_run_id: str | None = None,
 ) -> dict[str, Any]:
     detail: dict[str, Any] = {
         "example_id": example.id,
@@ -185,7 +187,7 @@ def evaluate_example(
         "expected_tools": example.expected_tools,
     }
     try:
-        agent_out = run_eval_example(example, db)
+        agent_out = run_eval_example(example, db, eval_run_id=eval_run_id)
     except Exception as exc:  # noqa: BLE001
         detail["error"] = f"agent_failed: {exc}"
         detail["tools_used"] = []
@@ -220,22 +222,24 @@ def evaluate_example(
     if skip_ragas:
         detail["rag"] = {"skipped": True, "reason": "skip_ragas_flag"}
     else:
-        rag = score_rag(
-            example,
-            answer=response,
-            trace=trace if isinstance(trace, dict) else None,
-            actual_tools=tools_used,
-        )
+        with without_tracing():
+            rag = score_rag(
+                example,
+                answer=response,
+                trace=trace if isinstance(trace, dict) else None,
+                actual_tools=tools_used,
+            )
         detail["rag"] = rag.model_dump()
 
     if skip_judge:
         detail["final_answer"] = {"skipped": True, "reason": "skip_judge_flag"}
     else:
-        final = score_final_answer(
-            example,
-            answer=response,
-            trace=trace if isinstance(trace, dict) else None,
-        )
+        with without_tracing():
+            final = score_final_answer(
+                example,
+                answer=response,
+                trace=trace if isinstance(trace, dict) else None,
+            )
         detail["final_answer"] = final.model_dump()
 
     return detail
@@ -266,6 +270,10 @@ def run_baseline(
     run_dir = output_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    ls_status = init_langsmith()
+    eval_tag = f"eval_{run_id}"
+    print(f"langsmith: {ls_status} tag={eval_tag}")
+
     db = SessionLocal()
     details: list[dict[str, Any]] = []
     try:
@@ -280,6 +288,7 @@ def run_baseline(
                 db,
                 skip_ragas=skip_ragas,
                 skip_judge=skip_judge,
+                eval_run_id=run_id,
             )
             details.append(detail)
             if detail.get("error"):
@@ -323,6 +332,10 @@ def run_baseline(
             "skip_judge": skip_judge,
             "limit": limit,
             "ids": ids,
+        },
+        "langsmith": {
+            **ls_status,
+            "eval_tag": eval_tag,
         },
         "aggregates": aggregates,
     }

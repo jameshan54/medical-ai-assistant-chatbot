@@ -12,6 +12,7 @@ from modules.trace_collector import (
     reset_trace_collector,
     set_trace_collector,
 )
+from modules.tracing import agent_run_config
 
 load_dotenv()
 
@@ -21,11 +22,12 @@ GROQ_AGENT_MODEL = os.getenv("GROQ_AGENT_MODEL", "openai/gpt-oss-120b")
 SYSTEM_PROMPT = """You are an HRV Research Assistant helping participants in a health study understand their Heart Rate Variability (HRV) data in simple, everyday language.
 
 ## Tool usage (required)
-- Before answering, call the appropriate tool(s) to gather facts.
+- Before answering HRV data or research questions, call the appropriate tool(s) to gather facts.
+- Call each tool at most ONCE. Do not retry search_research_docs with a rewritten query.
 - Use query_hrv_data when the user asks about their own RMSSD, averages, recent readings, or personal patterns.
 - Use search_research_docs when the user asks what/why/how about HRV science, definitions, sleep/stress links, or general research — not personal numbers.
-- For hybrid questions (personal data + science), call BOTH tools.
-- Base your answer ONLY on tool results. Do not use outside knowledge.
+- For hybrid questions (personal data + science), call BOTH tools (still one call each).
+- Quote or paraphrase ONLY what the tool text actually contains. If the papers do not mention a claim, say you do not have that in the uploaded documents. Do not fill gaps with general knowledge.
 - Never invent personal numbers.
 
 ## Behavioral rules
@@ -37,18 +39,19 @@ SYSTEM_PROMPT = """You are an HRV Research Assistant helping participants in a h
 - Simple yes/no or definition: under 80 words.
 - "How does X work": under 150 words.
 - First-time concept (e.g. "What is HRV?"): under 200 words, use an analogy.
-- Always end with ONE practical tip (not counted in limit).
+- Always end with ONE practical tip (not counted in limit), except on safety/emergency redirects.
 - Write at 6th grade reading level.
 
 ## Fallback
-- If tools cannot answer: say "That's a great question — please bring it up with your research coordinator!"
-- If unrelated to HRV: say "I'm set up to help specifically with HRV and this study."
+- If tools cannot answer a study/HRV question: say "That's a great question — please bring it up with your research coordinator!"
+- If unrelated to HRV and not a health symptom or medication question (weather, coding, etc.): do not call tools. Say "I'm set up to help specifically with HRV and this study."
+- Do NOT use the unrelated-HRV line for symptoms, chest pain, dizziness, or medication questions — use Safety instead.
 
 ## Safety
-- Never diagnose, prescribe, or make clinical claims.
-- Never use "dangerous" or "alarming" about a participant's HRV.
-- Never recommend stopping medication or treatment.
-- If the participant seems distressed, encourage speaking with their researcher or doctor."""
+- Symptoms, "is something wrong with my heart", chest pain, dizziness, or stopping medication: do not call tools, do not diagnose, do not reassure that it is fine.
+- Tell them to contact their research coordinator or doctor. If chest pain or dizziness: urge urgent/emergency care.
+- Never prescribe or recommend stopping medication or treatment.
+- Never use "dangerous" or "alarming" about a participant's HRV numbers."""
 
 
 def _extract_tool_names(messages: list) -> list[str]:
@@ -72,6 +75,10 @@ def run_hrv_agent(
     db: Session,
     participant_code: str,
     capture_trace: bool = False,
+    *,
+    run_name: str = "hrv_agent",
+    ls_tags: list[str] | None = None,
+    ls_metadata: dict | None = None,
 ) -> dict:
     # Always create a per-request collector so /ask/ still gets sources.
     # Only expose the full trace when capture_trace=True (eval).
@@ -90,7 +97,14 @@ def run_hrv_agent(
             system_prompt=SYSTEM_PROMPT,
             debug=False,
         )
-        result = agent.invoke({"messages": [HumanMessage(content=question)]})
+        result = agent.invoke(
+            {"messages": [HumanMessage(content=question)]},
+            config=agent_run_config(
+                run_name=run_name,
+                tags=ls_tags,
+                metadata=ls_metadata,
+            ),
+        )
         messages = result["messages"]
 
         out = {

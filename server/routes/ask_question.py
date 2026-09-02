@@ -18,7 +18,14 @@ async def ask_question(
     try:
         logger.info(f"user query: {question} (participant={participant_code})")
 
-        result = run_hrv_agent(question, db, participant_code)
+        result = run_hrv_agent(
+            question,
+            db,
+            participant_code,
+            run_name="ask",
+            ls_tags=["ask"],
+            ls_metadata={"participant_code": participant_code},
+        )
 
         logger.info(f"query successful (tools_used={result.get('tools_used', [])})")
         return result

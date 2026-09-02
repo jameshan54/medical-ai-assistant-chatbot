@@ -1,0 +1,18 @@
+.git
+.cursor
+.venv
+**/.venv
+.env
+**/.env
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+.mypy_cache
+.DS_Store
+Thumbs.db
+
+server/eval/results/
+
+# Local compose override (copy from the example)
+docker-compose.override.yml
