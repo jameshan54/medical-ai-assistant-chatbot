@@ -16,5 +16,11 @@ Thumbs.db
 
 server/eval/results/
 
+# Local participant exports and derived outputs (synthetic data stays tracked)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
 # Local docker compose overlay (copy from docker-compose.override.example.yml)
 docker-compose.override.yml
